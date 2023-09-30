@@ -1,10 +1,11 @@
 module my_addrx::GuessingGame {
 
+    //use std::debug;
     use std::signer;
+    use std::vector;
     use std::hash::sha3_256;
     use std::simple_map::{Self, SimpleMap};
     #[test_only]
-    //use std::debug;
     use std::account;
 
     // Constants
@@ -15,10 +16,12 @@ module my_addrx::GuessingGame {
     const E_QNA_ALREADY_INITIALIZED: u64 = 105;
     const E_QUESTION_ALREADY_EXIST: u64 = 106;
     const E_USER_ALREADY_ANSWERED: u64 = 107;
+    const E_CALLER_NOT_ANSWERED_YET: u64 = 108;
 
     struct Qna has key {
         qna_list: SimpleMap<vector<u8>, vector<u8>>,
-        points: SimpleMap<address, u16>
+        points: SimpleMap<address, u16>,
+        user_correct_responses: SimpleMap<address, vector<vector<u8>>>
     }
 
     public fun only_owner(addr:address) {
@@ -54,7 +57,8 @@ module my_addrx::GuessingGame {
 
         let qnalist = Qna {
             qna_list: simple_map::create(),
-            points: simple_map::create()
+            points: simple_map::create(),
+            user_correct_responses: simple_map::create(),
         };
 
         move_to(acc, qnalist);
@@ -94,7 +98,11 @@ module my_addrx::GuessingGame {
         assert_contains_key(&qna.qna_list, &qhash);
 
         if(!simple_map::contains_key(&qna.points, &addr)) {
-            simple_map::add(&mut qna.points,addr, 0);
+            simple_map::add(&mut qna.points, addr, 0);
+        };
+
+        if(!simple_map::contains_key(&qna.user_correct_responses, &addr)) {
+            simple_map::add(&mut qna.user_correct_responses, addr, vector::empty<vector<u8>>());
         };
 
         if(is_answer_correct(qna, qhash, ahash)) {
@@ -102,6 +110,9 @@ module my_addrx::GuessingGame {
             let user_points:&mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
             *user_points = *user_points + 10u16;
 
+            // add question to correctly_answered list
+            let user_correct_response_list = simple_map::borrow_mut(&mut qna.user_correct_responses, &addr);
+            vector::push_back(user_correct_response_list, qhash);
             return true
         };
 
@@ -110,8 +121,10 @@ module my_addrx::GuessingGame {
     }
 
     public fun get_user_points(addr:address, store_addr:address):u16 acquires Qna {
+        assert_is_initialized(store_addr);
         let qna = borrow_global_mut<Qna>(store_addr);
-        let user_points:&u16 = simple_map::borrow(&mut qna.points,&addr);
+        assert!(simple_map::contains_key(&qna.points, &addr), E_CALLER_NOT_ANSWERED_YET);
+        let user_points:&u16 = simple_map::borrow(&mut qna.points, &addr);
         *user_points
     }
 
@@ -187,6 +200,74 @@ module my_addrx::GuessingGame {
 
         assert!(user2_points==20, 204);
 
+    }
+
+    #[test(admin = @0x123)]
+    #[expected_failure(abort_code = E_CALLER_NOT_OWNER)]
+    public entry fun test_initialize_owner(admin:signer) {
+        initialize(&admin);
+    }
+
+    #[test(admin = @my_addrx)]
+    #[expected_failure(abort_code = E_QNA_ALREADY_INITIALIZED)]
+    public entry fun test_initialize_module_already_initialized(admin:signer) {
+        initialize(&admin);
+        initialize(&admin);
+    }
+
+    #[test(admin = @my_addrx)]
+    #[expected_failure(abort_code = E_QNA_NOT_INITIALIZED)]
+    public entry fun test_insert_qna_module_is_uninitialized(admin:signer) acquires Qna {
+        let store:address = @my_addrx;
+        let q1:vector<u8> = b"What is at the end of the rainbow?";
+        let a1: vector<u8> = b"w";
+        insert_qna_hashes(&admin, store, &q1, &a1);
+    }
+
+    #[test(admin = @my_addrx)]
+    #[expected_failure(abort_code = E_QUESTION_ALREADY_EXIST)]
+    public entry fun test_insert_qna_module_prevent_duplicate_question(admin:signer) acquires Qna {
+        initialize(&admin);
+        let store:address = @my_addrx;
+        let q1:vector<u8> = b"What is at the end of the rainbow?";
+        let a1: vector<u8> = b"w";
+        insert_qna_hashes(&admin, store, &q1, &a1);
+        insert_qna_hashes(&admin, store, &q1, &a1);
+    }
+
+    #[test(admin = @my_addrx, user1=@0x123)]
+    #[expected_failure(abort_code = E_QUESTION_DOES_NOT_EXIST)]
+    public entry fun test_insert_qna_module_question_must_exist_for_answers(admin:signer, user1:signer) acquires Qna {
+        account::create_account_for_test(signer::address_of(&user1));
+        initialize(&admin);
+        let store:address = @my_addrx;
+        let q1:vector<u8> = b"What is at the end of the rainbow?";
+        let q2:vector<u8> = b"Non existing question?";
+        let a1: vector<u8> = b"w";
+        insert_qna_hashes(&admin, store, &q1, &a1);
+        insert_answer(&user1, store, &q2, &a1);
+    }
+
+    #[test(admin = @my_addrx)]
+    #[expected_failure(abort_code = E_QNA_NOT_INITIALIZED)]
+    public fun test_get_user_points_assert_initialized() acquires Qna {
+        let store:address = @my_addrx;
+        let user = account::create_account_for_test(@0x2);
+        let user_addr = signer::address_of(&user);
+        let user2_points = get_user_points(user_addr, store);
+        assert!(user2_points==0, 205);
+    }
+
+    #[test(admin = @my_addrx)]
+    #[expected_failure(abort_code = E_CALLER_NOT_ANSWERED_YET)]
+    public fun test_get_user_points(admin:signer) acquires Qna {
+        let user = account::create_account_for_test(@0x2);
+        let user_addr = signer::address_of(&user);
+        let store = signer::address_of(&admin);
+        initialize(&admin);
+        
+        get_user_points(user_addr, store);
+        
     }
 
 }
