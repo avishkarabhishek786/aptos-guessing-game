@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-my_addrx = "0x635bc91e8f3cd9759b5d90f80e94bb34fae17f9fa48345970667955d63084e3e"
+my_addrx = "7a59f367aca1633827bf7a57d9fe787a6fe7b6c340492ed8aad19ea565c3d23a"
 std = "0x1"
 
 [dev-addresses]

@@ -66,17 +66,14 @@ module my_addrx::GuessingGame {
 
     }
 
-    public entry fun insert_qna_hashes(acc: &signer, store_addr:address, question:String, answer:String) acquires Qna {
+    public entry fun insert_qna_hashes(store_addr:address, question:String, answer:String) acquires Qna {
 
         assert_is_initialized(store_addr);
 
-        let addr = signer::address_of(acc);
-
         // todo: how to prevent empty strings
 
-        let qna = borrow_global_mut<Qna>(addr);
+        let qna = borrow_global_mut<Qna>(store_addr);
 
-        //let qhash:vector<u8> = hashify(&question);
         let ahash:vector<u8> = hashify(&answer);
         
         assert_not_contains_key(&qna.qna_list, &question);
@@ -93,7 +90,6 @@ module my_addrx::GuessingGame {
 
         let qna = borrow_global_mut<Qna>(store_addr);
 
-        //let qhash:vector<u8> = hashify(&question);
         let ahash:vector<u8> = hashify(&answer);
         
         assert_contains_key(&qna.qna_list, &question);
@@ -152,26 +148,22 @@ module my_addrx::GuessingGame {
         initialize(&admin);
         
         let q1:String= utf8(b"What is at the end of the rainbow?");
-        //let q1hash = hashify(&q1);
         let q2:String = utf8(b"What word is always spelled wrong?");
-        //let q2hash = hashify(&q2);
 
         let a1: String = utf8(b"w");
         let a1hash = hashify(&a1);
         let a2: String = utf8(b"wrong");
         let a2hash = hashify(&a2);
 
-        insert_qna_hashes(&admin, store, q1, a1);
-        insert_qna_hashes(&admin, store, q2, a2);
+        insert_qna_hashes(store, q1, a1);
+        insert_qna_hashes(store, q2, a2);
 
         let qna = borrow_global<Qna>(store);
         
         let correct_answer_1= simple_map::borrow(&qna.qna_list, &q1);
-        //debug::print(correct_answer_1);
         assert!(correct_answer_1==&a1hash, 301);
 
         let correct_answer_2= simple_map::borrow(&qna.qna_list, &q2);
-        //debug::print(correct_answer_2);
         assert!(correct_answer_2==&a2hash, 302);
 
         let user1_answer1:String = utf8(b"w");
@@ -220,11 +212,11 @@ module my_addrx::GuessingGame {
 
     #[test(admin = @my_addrx)]
     #[expected_failure(abort_code = E_QNA_NOT_INITIALIZED)]
-    public entry fun test_insert_qna_module_is_uninitialized(admin:signer) acquires Qna {
+    public entry fun test_insert_qna_module_is_uninitialized() acquires Qna {
         let store:address = @my_addrx;
         let q1:String = utf8(b"What is at the end of the rainbow?");
         let a1: String = utf8(b"w");
-        insert_qna_hashes(&admin, store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
     }
 
     #[test(admin = @my_addrx)]
@@ -234,8 +226,8 @@ module my_addrx::GuessingGame {
         let store:address = @my_addrx;
         let q1:String = utf8(b"What is at the end of the rainbow?");
         let a1: String = utf8(b"w");
-        insert_qna_hashes(&admin, store, q1, a1);
-        insert_qna_hashes(&admin, store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
     }
 
     #[test(admin = @my_addrx, user1=@0x123)]
@@ -247,7 +239,7 @@ module my_addrx::GuessingGame {
         let q1:String = utf8(b"What is at the end of the rainbow?");
         let q2:String = utf8(b"Non existing question?");
         let a1: String = utf8(b"w");
-        insert_qna_hashes(&admin, store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
         insert_answer(&user1, store, q2, a1);
     }
 
@@ -282,11 +274,10 @@ module my_addrx::GuessingGame {
         initialize(&admin);
 
         let q1:String = utf8(b"What is at the end of the rainbow?");
-        //let q1hash = hashify(&q1);
 
         let a1: String = utf8(b"w");
 
-        insert_qna_hashes(&admin, store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
         
         let qna = borrow_global<Qna>(store);
 
@@ -315,11 +306,10 @@ module my_addrx::GuessingGame {
         initialize(&admin);
 
         let q1:String = utf8(b"What is at the end of the rainbow?");
-        //let q1hash = hashify(&q1);
 
         let a1: String = utf8(b"w");
 
-        insert_qna_hashes(&admin, store, q1, a1);
+        insert_qna_hashes(store, q1, a1);
         
         let qna = borrow_global<Qna>(store);
 
