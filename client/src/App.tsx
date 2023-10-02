@@ -9,7 +9,7 @@ function App() {
 
     const provider = new Provider(Network.DEVNET);
 
-    const moduleAddress = "0x635bc91e8f3cd9759b5d90f80e94bb34fae17f9fa48345970667955d63084e3e";
+    const moduleAddress = "0x7a59f367aca1633827bf7a57d9fe787a6fe7b6c340492ed8aad19ea565c3d23a";
 
     const { account, signAndSubmitTransaction } = useWallet();
 
@@ -17,14 +17,23 @@ function App() {
 
     const [transactionInProgress, setTransactionInProgress] = useState<boolean>(false);
 
-    const [qnaList, setQnaList] = useState([]);
+    const [qnaList, setQnaList] = useState<Qlist[]>([]);
+
+    const [newQuizQuestion, setNewQuizQuestion] = useState<string>("");
+    const [newQuizAnswer, setNewQuizAnswer] = useState<string>("");
+    const [writeAnsweringQuiz, setWriteAnsweringQuiz] = useState<string>("");
+
+    type Qlist = {
+        key: String,
+        value: String
+    }
 
     const fetchList = async () => {
         if (!account) return [];
 
         try {
             const QuizListResource = await provider.getAccountResource(
-                account.address,
+                moduleAddress,
                 `${moduleAddress}::GuessingGame::Qna`
             );
             setAccountHasQuizList(true);
@@ -40,6 +49,8 @@ function App() {
                 console.log(qnaElem);
             }
 
+            console.log(...user_correct_responses.data);
+
             setQnaList(qna_list.data);
 
         } catch (e: any) {
@@ -47,7 +58,7 @@ function App() {
         }
     };
 
-    const addNewQuizList = async () => {
+    const initialize = async () => {
         if (!account) return [];
         setTransactionInProgress(true);
         // build a transaction payload to be submited
@@ -70,6 +81,91 @@ function App() {
         }
     };
 
+    const onWriteNewQuizQuestion = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        setNewQuizQuestion(value);
+    };
+
+    const onWriteNewQuizAnswer = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        setNewQuizAnswer(value);
+    }    
+    
+    const onWriteAnsweringQuiz = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        setWriteAnsweringQuiz(value);
+    }
+
+    const onQuizAdded = async () => {
+        // check for connected account
+        if (!account) return;
+        setTransactionInProgress(true);
+        // build a transaction payload to be submited
+        const payload = {
+            type: "entry_function_payload",
+            function: `${moduleAddress}::GuessingGame::insert_qna_hashes`,
+            type_arguments: [],
+            arguments: [moduleAddress, newQuizQuestion, newQuizAnswer],
+        };
+
+        // hold the latest task.task_id from our local state
+        //const latestId = qnaList.length;
+
+        // build a newTaskToPush object into our local state
+        const newTaskToPush = {
+            key: newQuizQuestion,
+            value: newQuizAnswer
+        };
+
+        try {
+            // sign and submit transaction to chain
+            const response = await signAndSubmitTransaction(payload);
+            // wait for transaction
+            await provider.waitForTransaction(response.hash);
+
+            // Create a new array based on current state:
+            let newList = [...qnaList];
+
+            // Add item to the newList array
+            newList.push(newTaskToPush);
+            // Set state
+            setQnaList(qnaList);
+            // clear input text
+            setNewQuizQuestion("");
+            setNewQuizAnswer("");
+        } catch (error: any) {
+            console.log("error", error);
+        } finally {
+            setTransactionInProgress(false);
+        }
+    };
+
+    const onQuizAnswerSubmit = async (q:String) => {
+        // check for connected account
+        if (!account) return;
+        setTransactionInProgress(true);
+        // build a transaction payload to be submited
+        const payload = {
+            type: "entry_function_payload",
+            function: `${moduleAddress}::GuessingGame::insert_answer`,
+            type_arguments: [],
+            arguments: [moduleAddress, q, writeAnsweringQuiz],
+        };
+
+        try {
+            // sign and submit transaction to chain
+            const response = await signAndSubmitTransaction(payload);
+            // wait for transaction
+            await provider.waitForTransaction(response.hash);
+
+            setWriteAnsweringQuiz("");
+        } catch (error: any) {
+            console.log("error", error);
+        } finally {
+            setTransactionInProgress(false);
+        }
+    };
+
     useEffect(() => {
         fetchList();
     }, [account?.address]);
@@ -84,18 +180,101 @@ function App() {
                     <Col span={12} style={{ textAlign: "right", paddingRight: "200px" }}>
                         <WalletSelector />
                     </Col>
+                   
+                </Row>
+                <Row align="middle">
+                    <Col span={12} style={{ textAlign: "right"}}>
+                         <h3>Points: 20</h3>
+                    </Col>
                 </Row>
             </Layout>
             <Spin spinning={transactionInProgress}>
-                {!accountHasQuizList && (
-                    <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
-                        <Col span={8} offset={8}>
-                            <Button onClick={addNewQuizList} block type="primary" style={{ height: "40px", backgroundColor: "#3f67ff" }}>
-                                Add new list
-                            </Button>
-                        </Col>
-                    </Row>
-                )}
+                {
+                    !accountHasQuizList ? (
+                        <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
+                            <Col span={8} offset={8}>
+                                <Button
+                                    disabled={!account}
+                                    block
+                                    onClick={initialize}
+                                    type="primary"
+                                    style={{ height: "40px", backgroundColor: "#3f67ff" }}
+                                >
+                                    Add new quiz list
+                                </Button>
+                            </Col>
+                        </Row>
+                    ) : (
+                        <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
+                            <Col span={8} offset={8}>
+                                <Input.Group compact>
+                                    <Input
+                                        onChange={(event) => onWriteNewQuizQuestion(event)}
+                                        style={{ width: "calc(100% - 60px)" }}
+                                        placeholder="Add New Quiz Question"
+                                        size="large"
+                                        value={newQuizQuestion}
+                                    />
+                                    <Input
+                                        onChange={(event) => onWriteNewQuizAnswer(event)}
+                                        style={{ width: "calc(100% - 60px)" }}
+                                        placeholder="Add New Quiz Answer"
+                                        size="large"
+                                        value={newQuizAnswer}
+                                    />
+                                    <Button
+                                        onClick={onQuizAdded}
+                                        type="primary"
+                                        style={{ height: "40px", backgroundColor: "#3f67ff" }}
+                                    >
+                                        Add
+                                    </Button>
+                                </Input.Group>
+                            </Col>
+                            <Col span={8} offset={8}>
+                                {qnaList && (
+                                    <List
+                                        size="small"
+                                        bordered
+                                        dataSource={qnaList}
+                                        renderItem={(ql: any) => (
+                                            <List.Item
+                                                actions={[
+                                                    <div>
+                                                        {false ? (
+                                                            <Checkbox defaultChecked={true} disabled />
+                                                        ) : (
+                                                            <>
+                                                        <Input
+                                                            onChange={(event) => onWriteAnsweringQuiz(event)}
+                                                            style={{ width: "calc(100% - 60px)" }}
+                                                            placeholder="Guess The Quiz Answer"
+                                                            size="large"
+                                                            value={writeAnsweringQuiz}
+                                                        />
+                                                        <Button
+                                                            onClick={()=>onQuizAnswerSubmit(ql.key)}
+                                                            type="primary"
+                                                            style={{ height: "40px", backgroundColor: "#3f67ff" }}
+                                                        >
+                                                            Answer
+                                                        </Button>
+                                                        </>
+                                                        )}
+                                                    </div>,
+                                                ]}
+                                            >
+                                                <List.Item.Meta
+                                                    title={ql.key}
+                                                    description=""
+                                                />
+                                            </List.Item>
+                                        )}
+                                    />
+                                )}
+                            </Col>
+                        </Row>
+                    )}
             </Spin>
         </>
     );
