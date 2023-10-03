@@ -2,14 +2,14 @@ import { WalletSelector } from "@aptos-labs/wallet-adapter-ant-design";
 import { Provider, Network } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import "@aptos-labs/wallet-adapter-ant-design/dist/index.css";
-import { Layout, Row, Col, Button, Spin, List, Checkbox, Input } from "antd";
+import { Layout, Row, Col, Button, Spin, List, Input } from "antd";
 import { useEffect, useState } from "react";
 
 function App() {
 
     const provider = new Provider(Network.DEVNET);
 
-    const moduleAddress = "0x7a59f367aca1633827bf7a57d9fe787a6fe7b6c340492ed8aad19ea565c3d23a";
+    const moduleAddress = "0x99f025368bc8d2858331379a02d8047192e571c73c378ab4686b68328e7668fa";
 
     const { account, signAndSubmitTransaction } = useWallet();
 
@@ -25,6 +25,8 @@ function App() {
     const [newQuizAnswer, setNewQuizAnswer] = useState<string>("");
     const [writeAnsweringQuiz, setWriteAnsweringQuiz] = useState<string>("");
 
+    const [userPoint, setUserPoint] = useState<any>();
+
     type Qlist = {
         key: String,
         value: String
@@ -38,30 +40,34 @@ function App() {
                 moduleAddress,
                 `${moduleAddress}::GuessingGame::Qna`
             );
+            
             setAccountHasQuizList(true);
 
             const qna_list = (QuizListResource as any).data.qna_list;
-            const user_points = (QuizListResource as any).data.points;
+            const all_user_points = (QuizListResource as any).data.points;
             const user_correct_responses = (QuizListResource as any).data.user_correct_responses;
 
-            console.log(qna_list.data.length);
-
-            for (let index = 0; index < qna_list.data.length; index++) {
-                const qnaElem = qna_list.data[index];
-                console.log(qnaElem);
+            let user_points = all_user_points.data.filter((f: { key: string })=>f.key==account.address);
+            
+            if(user_points.length) {
+                setUserPoint(user_points[0].value);
+            } else {
+                setUserPoint(0);
             }
 
             const all_quizes = qna_list.data.map((m: { key: any; }) => m.key);
-            const all_quizes_questions = user_correct_responses.data.map((m: { key: any; }) => m.key);
 
-            const answered_quizes = all_quizes.filter((f: any, i: string | number) => all_quizes_questions[i])
-            const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => !all_quizes_questions[i])
+            const answered_quizes = user_correct_responses.data
+                .filter((f: { key: string; })=>f.key==account.address)
+                .map((m: { value: any; })=>m.value);
+
+            const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => !answered_quizes[0].includes(f));
 
             setQnaList(qna_list.data);
 
             setUnansweredList(unanswered_quizes);
 
-            setAnsweredList(answered_quizes);
+            setAnsweredList(answered_quizes[0]);
 
         } catch (e: any) {
             setAccountHasQuizList(false);
@@ -134,12 +140,13 @@ function App() {
             await provider.waitForTransaction(response.hash);
 
             // Create a new array based on current state:
-            let newList = [...qnaList];
+            //let newList = [...qnaList];
 
             // Add item to the newList array
-            newList.push(newTaskToPush);
+            //newList.push(newTaskToPush);
             // Set state
             setQnaList(qnaList);
+            fetchList();
             // clear input text
             setNewQuizQuestion("");
             setNewQuizAnswer("");
@@ -154,10 +161,7 @@ function App() {
         // check for connected account
         if (!account) return;
         setTransactionInProgress(true);
-
-        console.log(moduleAddress);
-        console.log(q);
-        console.log(writeAnsweringQuiz);
+        
         // build a transaction payload to be submited
         const payload = {
             type: "entry_function_payload",
@@ -177,8 +181,17 @@ function App() {
             console.log("error", error);
         } finally {
             setTransactionInProgress(false);
+            fetchList();
         }
     };
+
+    const capitlizeText = (word:String) => {
+        if(typeof word == 'string') {
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        } else {
+            return word;
+        }
+    }
 
     useEffect(() => {
         fetchList();
@@ -198,7 +211,7 @@ function App() {
                 </Row>
                 <Row align="middle">
                     <Col span={12} style={{ textAlign: "right" }}>
-                        <h3>Points: 20</h3>
+                        <h3>Points: {userPoint}</h3>
                     </Col>
                 </Row>
             </Layout>
@@ -259,7 +272,7 @@ function App() {
                                                         {(
                                                             <>
                                                                 <List.Item.Meta
-                                                                    title={ual.toWellFormed()}
+                                                                    title={capitlizeText(ual)}
                                                                     description="Answer should be one word and small cap."
                                                                 />
                                                                 <Input
@@ -269,7 +282,7 @@ function App() {
                                                                     size="large"
                                                                 />
                                                                 <Button
-                                                                    onClick={() => onQuizAnswerSubmit(ual.key)}
+                                                                    onClick={() => onQuizAnswerSubmit(ual)}
                                                                     type="primary"
                                                                     style={{ height: "40px", backgroundColor: "#3f67ff" }}
                                                                 >
@@ -294,7 +307,7 @@ function App() {
                                         renderItem={(al: any) => (
                                             <List.Item>
                                                 <List.Item.Meta
-                                                    title={al.toWellFormed()}
+                                                    title={capitlizeText(al)}
                                                     description="You guess it. 10 points added."
                                                 />
                                             </List.Item>
