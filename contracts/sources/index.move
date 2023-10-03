@@ -12,7 +12,6 @@ module my_addrx::GuessingGame {
     // Constants
     const E_QUESTION_DOES_NOT_EXIST: u64 = 101;
     const E_ANSWER_DOES_NOT_EXIST: u64 = 102;
-    const E_CALLER_NOT_OWNER: u64 = 103;
     const E_QNA_NOT_INITIALIZED: u64 = 104;
     const E_QNA_ALREADY_INITIALIZED: u64 = 105;
     const E_QUESTION_ALREADY_EXIST: u64 = 106;
@@ -23,10 +22,6 @@ module my_addrx::GuessingGame {
         qna_list: SimpleMap<String, vector<u8>>,
         points: SimpleMap<address, u16>,
         user_correct_responses: SimpleMap<address, vector<String>>
-    }
-
-    public fun only_owner(addr:address) {
-        assert!(addr==@my_addrx, E_CALLER_NOT_OWNER);
     }
 
     public fun assert_is_initialized(store_addr:address) {
@@ -49,9 +44,6 @@ module my_addrx::GuessingGame {
         
         // get address of caller
         let addr = signer::address_of(acc);
-        
-        // assert caller is owner
-        only_owner(addr);
 
         // assert resource is not already initialized
         assert_is_uninitialized(addr);
@@ -90,7 +82,7 @@ module my_addrx::GuessingGame {
 
         let qna = borrow_global_mut<Qna>(store_addr);
 
-        let ahash:vector<u8> = hashify(&answer);
+        //let ahash:vector<u8> = hashify(&answer);
         
         assert_contains_key(&qna.qna_list, &question);
 
@@ -105,7 +97,8 @@ module my_addrx::GuessingGame {
         let user_correct_response_list = simple_map::borrow(&qna.user_correct_responses, &addr);
         assert!(!vector::contains(user_correct_response_list, &question), E_USER_ALREADY_ANSWERED);
 
-        if(is_answer_correct(qna, question, ahash)) {
+        if(is_answer_correct(store_addr, question, answer)) {
+            let qna = borrow_global_mut<Qna>(store_addr);
             // add points to caller
             let user_points:&mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
             *user_points = *user_points + 10u16;
@@ -126,17 +119,20 @@ module my_addrx::GuessingGame {
         *user_points
     }
 
-    fun is_answer_correct(qna:&Qna, quest:String, user_ans_hash:vector<u8>):bool  {
+    #[view]
+    public fun is_answer_correct(store_addr:address, quest:String, user_ans:String):bool acquires Qna  {
+        let qna = borrow_global<Qna>(store_addr);
         let ans = simple_map::borrow(&qna.qna_list, &quest);
+        let user_ans_hash = hashify(&user_ans);
         ans == &user_ans_hash
     }
 
-    public fun hashify(data:&String):vector<u8> {
+    fun hashify(data:&String):vector<u8> {
         let hash:&vector<u8> = bytes(data);
         sha3_256(*hash)
     }
 
-    #[test(admin = @my_addrx)]
+    #[test(admin = @456)]
     public fun test_flow(admin: signer) acquires Qna {
 
         let store = signer::address_of(&admin);
@@ -167,9 +163,9 @@ module my_addrx::GuessingGame {
         assert!(correct_answer_2==&a2hash, 302);
 
         let user1_answer1:String = utf8(b"w");
-        let user1_ans1_hash = hashify(&user1_answer1);
+        //let user1_ans1_hash = hashify(&user1_answer1);
         
-        let is_user_answer_correct = is_answer_correct(qna, q1, user1_ans1_hash);
+        let is_user_answer_correct = is_answer_correct(store, q1, user1_answer1);
 
         assert!(is_user_answer_correct==true, 201);
 
@@ -197,17 +193,16 @@ module my_addrx::GuessingGame {
 
     }
 
-    #[test(admin = @0x123)]
-    #[expected_failure(abort_code = E_CALLER_NOT_OWNER)]
-    public entry fun test_initialize_owner(admin:signer) {
-        initialize(&admin);
-    }
-
     #[test(admin = @my_addrx)]
     #[expected_failure(abort_code = E_QNA_ALREADY_INITIALIZED)]
     public entry fun test_initialize_module_already_initialized(admin:signer) {
         initialize(&admin);
         initialize(&admin);
+    }
+
+    #[test(notadmin = @0x123)]
+    public entry fun test_initialize_module_by_anyone(notadmin:signer) {
+        initialize(&notadmin);
     }
 
     #[test(admin = @my_addrx)]
@@ -278,13 +273,11 @@ module my_addrx::GuessingGame {
         let a1: String = utf8(b"w");
 
         insert_qna_hashes(store, q1, a1);
-        
-        let qna = borrow_global<Qna>(store);
 
         let user1_answer1 = utf8(b"w");
-        let user1_ans1_hash = hashify(&user1_answer1);
+        //let user1_ans1_hash = hashify(&user1_answer1);
         
-        let is_user_answer_correct = is_answer_correct(qna, q1, user1_ans1_hash);
+        let is_user_answer_correct = is_answer_correct(store, q1, user1_answer1);
 
         assert!(is_user_answer_correct==true, 201);
 
@@ -310,13 +303,10 @@ module my_addrx::GuessingGame {
         let a1: String = utf8(b"w");
 
         insert_qna_hashes(store, q1, a1);
-        
-        let qna = borrow_global<Qna>(store);
 
         let user1_answer1 = utf8(b"wtf");
-        let user1_ans1_hash = hashify(&user1_answer1);
         
-        let is_user_answer_correct = is_answer_correct(qna, q1, user1_ans1_hash);
+        let is_user_answer_correct = is_answer_correct(store, q1, user1_answer1);
 
         assert!(is_user_answer_correct==false, 401);
 
