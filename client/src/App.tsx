@@ -18,6 +18,8 @@ function App() {
     const [transactionInProgress, setTransactionInProgress] = useState<boolean>(false);
 
     const [qnaList, setQnaList] = useState<Qlist[]>([]);
+    const [unansweredList, setUnansweredList] = useState<Qlist[]>([]);
+    const [answeredList, setAnsweredList] = useState<Qlist[]>([]);
 
     const [newQuizQuestion, setNewQuizQuestion] = useState<string>("");
     const [newQuizAnswer, setNewQuizAnswer] = useState<string>("");
@@ -49,9 +51,17 @@ function App() {
                 console.log(qnaElem);
             }
 
-            console.log(...user_correct_responses.data);
+            const all_quizes = qna_list.data.map((m: { key: any; }) => m.key);
+            const all_quizes_questions = user_correct_responses.data.map((m: { key: any; }) => m.key);
+
+            const answered_quizes = all_quizes.filter((f: any, i: string | number) => all_quizes_questions[i])
+            const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => !all_quizes_questions[i])
 
             setQnaList(qna_list.data);
+
+            setUnansweredList(unanswered_quizes);
+
+            setAnsweredList(answered_quizes);
 
         } catch (e: any) {
             setAccountHasQuizList(false);
@@ -82,17 +92,17 @@ function App() {
     };
 
     const onWriteNewQuizQuestion = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value;
+        const value = event.target.value.toLowerCase();
         setNewQuizQuestion(value);
     };
 
     const onWriteNewQuizAnswer = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value;
+        const value = event.target.value.toLowerCase();
         setNewQuizAnswer(value);
-    }    
-    
+    }
+
     const onWriteAnsweringQuiz = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value;
+        const value = event.target.value.toLowerCase();
         setWriteAnsweringQuiz(value);
     }
 
@@ -140,10 +150,14 @@ function App() {
         }
     };
 
-    const onQuizAnswerSubmit = async (q:String) => {
+    const onQuizAnswerSubmit = async (q: String) => {
         // check for connected account
         if (!account) return;
         setTransactionInProgress(true);
+
+        console.log(moduleAddress);
+        console.log(q);
+        console.log(writeAnsweringQuiz);
         // build a transaction payload to be submited
         const payload = {
             type: "entry_function_payload",
@@ -180,11 +194,11 @@ function App() {
                     <Col span={12} style={{ textAlign: "right", paddingRight: "200px" }}>
                         <WalletSelector />
                     </Col>
-                   
+
                 </Row>
                 <Row align="middle">
-                    <Col span={12} style={{ textAlign: "right"}}>
-                         <h3>Points: 20</h3>
+                    <Col span={12} style={{ textAlign: "right" }}>
+                        <h3>Points: 20</h3>
                     </Col>
                 </Row>
             </Layout>
@@ -218,7 +232,7 @@ function App() {
                                     <Input
                                         onChange={(event) => onWriteNewQuizAnswer(event)}
                                         style={{ width: "calc(100% - 60px)" }}
-                                        placeholder="Add New Quiz Answer"
+                                        placeholder="Add Correct Answer"
                                         size="large"
                                         value={newQuizAnswer}
                                     />
@@ -232,41 +246,56 @@ function App() {
                                 </Input.Group>
                             </Col>
                             <Col span={8} offset={8}>
-                                {qnaList && (
+                                {unansweredList && (
                                     <List
+                                        itemLayout="horizontal"
                                         size="small"
                                         bordered
-                                        dataSource={qnaList}
-                                        renderItem={(ql: any) => (
+                                        dataSource={unansweredList}
+                                        renderItem={(ual: any) => (
                                             <List.Item
                                                 actions={[
                                                     <div>
-                                                        {false ? (
-                                                            <Checkbox defaultChecked={true} disabled />
-                                                        ) : (
+                                                        {(
                                                             <>
-                                                        <Input
-                                                            onChange={(event) => onWriteAnsweringQuiz(event)}
-                                                            style={{ width: "calc(100% - 60px)" }}
-                                                            placeholder="Guess The Quiz Answer"
-                                                            size="large"
-                                                            value={writeAnsweringQuiz}
-                                                        />
-                                                        <Button
-                                                            onClick={()=>onQuizAnswerSubmit(ql.key)}
-                                                            type="primary"
-                                                            style={{ height: "40px", backgroundColor: "#3f67ff" }}
-                                                        >
-                                                            Answer
-                                                        </Button>
-                                                        </>
+                                                                <List.Item.Meta
+                                                                    title={ual.toWellFormed()}
+                                                                    description="Answer should be one word and small cap."
+                                                                />
+                                                                <Input
+                                                                    onChange={(event) => onWriteAnsweringQuiz(event)}
+                                                                    style={{ width: "calc(100% - 60px)" }}
+                                                                    placeholder="Guess The Quiz Answer"
+                                                                    size="large"
+                                                                />
+                                                                <Button
+                                                                    onClick={() => onQuizAnswerSubmit(ual.key)}
+                                                                    type="primary"
+                                                                    style={{ height: "40px", backgroundColor: "#3f67ff" }}
+                                                                >
+                                                                    Answer
+                                                                </Button>
+                                                            </>
                                                         )}
                                                     </div>,
                                                 ]}
                                             >
+                                            </List.Item>
+                                        )}
+                                    />
+                                )}
+                            </Col>
+                            <Col span={8} offset={8}>
+                                {answeredList && (
+                                    <List
+                                        size="small"
+                                        bordered
+                                        dataSource={answeredList}
+                                        renderItem={(al: any) => (
+                                            <List.Item>
                                                 <List.Item.Meta
-                                                    title={ql.key}
-                                                    description=""
+                                                    title={al.toWellFormed()}
+                                                    description="You guess it. 10 points added."
                                                 />
                                             </List.Item>
                                         )}
