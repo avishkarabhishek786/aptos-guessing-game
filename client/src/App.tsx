@@ -47,7 +47,7 @@ function App() {
             const all_user_points = (QuizListResource as any).data.points;
             const user_correct_responses = (QuizListResource as any).data.user_correct_responses;
 
-            let user_points = all_user_points.data.filter((f: { key: string })=>f.key==account.address);
+            let user_points = all_user_points.data.filter((f: { key: string })=>f.key===account.address);
             
             if(user_points.length) {
                 setUserPoint(user_points[0].value);
@@ -58,7 +58,7 @@ function App() {
             const all_quizes = qna_list.data.map((m: { key: any; }) => m.key);
 
             const answered_quizes = user_correct_responses.data
-                .filter((f: { key: string; })=>f.key==account.address)
+                .filter((f: { key: string; })=>f.key===account.address)
                 .map((m: { value: any; })=>m.value);
 
             const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => !answered_quizes[0].includes(f));
