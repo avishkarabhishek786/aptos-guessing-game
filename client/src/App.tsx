@@ -223,6 +223,14 @@ function App() {
         fetchList();
     }, [account?.address]);
 
+    const data = [
+        'Connect your wallet',
+        'Correct answer adds 10 points',
+        'Wrong answer subtracts 2 points',
+        'All answers are one word',
+        'You can also add a new riddle',
+      ];
+
     return (
         <>
             <Layout>
@@ -237,15 +245,22 @@ function App() {
                 </Row>
                 <Row align="middle">
                     <Col span={12} style={{ textAlign: "right" }}>
-                        <h3>Points: {userPoint}</h3>
+                        {account?.address ? (
+                            <h3>Points: {userPoint}</h3>
+                        ):(
+                            <span></span>
+                        )}
+                        
                     </Col>
                 </Row>
             </Layout>
             <Spin spinning={transactionInProgress}>
                 {
                     !accountHasQuizList ? (
-                        <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
-                            <Col span={8} offset={8}>
+                        <Row align="middle" gutter={[0, 32]} style={{ marginTop: "2rem" }}>
+                            {
+                                account?.address == moduleAddress ? (
+                                <Col span={8} offset={8}>
                                 <Button
                                     disabled={!account}
                                     block
@@ -256,6 +271,24 @@ function App() {
                                     Add new quiz list
                                 </Button>
                             </Col>
+                                ) : (
+
+                                    <Col span={8} offset={8}>
+
+                                  <List    
+                                    itemLayout="horizontal"                             
+                                    size="small"
+                                    header={<h4>Game Rules</h4>}
+                                    bordered
+                                    dataSource={data}
+                                    renderItem={(item) => <List.Item>{item}</List.Item>}
+                                  />
+
+                                  </Col>
+
+                                )
+                            }
+                            
                         </Row>
                     ) : (
                         <Row gutter={[0, 32]} style={{ marginTop: "2rem" }}>
@@ -311,7 +344,7 @@ function App() {
                                                                 <Button
                                                                     onClick={() => onQuizAnswerSubmit(ual)}
                                                                     type="primary"
-                                                                    style={{ height: "40px", backgroundColor: "#3f67ff" }}
+                                                                    style={{ height: "40px", backgroundColor: "#3f67ff", marginTop: "10px" }}
                                                                 >
                                                                     Answer
                                                                 </Button>
