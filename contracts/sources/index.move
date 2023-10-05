@@ -76,44 +76,44 @@ module my_addrx::GuessingGame {
     
     public entry fun insert_answer(caller: &signer, store_addr: address, question: String, answer: String) acquires Qna {
 
-    assert_is_initialized(store_addr);
+        assert_is_initialized(store_addr);
 
-    let addr: address = signer::address_of(caller);
+        let addr: address = signer::address_of(caller);
 
-    let qna = borrow_global_mut<Qna>(store_addr);
-
-    assert_contains_key(&qna.qna_list, &question);
-
-    if (!simple_map::contains_key(&qna.points, &addr)) {
-        simple_map::add(&mut qna.points, addr, 0);
-    };
-
-    if (!simple_map::contains_key(&qna.user_correct_responses, &addr)) {
-        simple_map::add(&mut qna.user_correct_responses, addr, vector::empty<String>());
-    };
-
-    let user_correct_response_list = simple_map::borrow(&qna.user_correct_responses, &addr);
-    assert!(!vector::contains(user_correct_response_list, &question), E_USER_ALREADY_ANSWERED);
-
-    if (is_answer_correct(store_addr, question, answer)) {
         let qna = borrow_global_mut<Qna>(store_addr);
-        // add points to caller
-        let user_points: &mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
-        *user_points = *user_points + 10u16;
 
-        // add question to correctly_answered list
-        let user_correct_response_list = simple_map::borrow_mut(&mut qna.user_correct_responses, &addr);
-        vector::push_back(user_correct_response_list, question);
-    } else {
-        let qna = borrow_global_mut<Qna>(store_addr);
-        let user_points: &mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
-        if (*user_points >= 5u16) {
-            *user_points = *user_points - 5u16;
+        assert_contains_key(&qna.qna_list, &question);
+
+        if (!simple_map::contains_key(&qna.points, &addr)) {
+            simple_map::add(&mut qna.points, addr, 0);
+        };
+
+        if (!simple_map::contains_key(&qna.user_correct_responses, &addr)) {
+            simple_map::add(&mut qna.user_correct_responses, addr, vector::empty<String>());
+        };
+
+        let user_correct_response_list = simple_map::borrow(&qna.user_correct_responses, &addr);
+        assert!(!vector::contains(user_correct_response_list, &question), E_USER_ALREADY_ANSWERED);
+
+        if (is_answer_correct(store_addr, question, answer)) {
+            let qna = borrow_global_mut<Qna>(store_addr);
+            // add points to caller
+            let user_points: &mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
+            *user_points = *user_points + 10u16;
+
+            // add question to correctly_answered list
+            let user_correct_response_list = simple_map::borrow_mut(&mut qna.user_correct_responses, &addr);
+            vector::push_back(user_correct_response_list, question);
         } else {
-            *user_points = 0u16;
-        }
-    };
-}
+            let qna = borrow_global_mut<Qna>(store_addr);
+            let user_points: &mut u16 = simple_map::borrow_mut(&mut qna.points, &addr);
+            if (*user_points >= 2u16) {
+                *user_points = *user_points - 2u16;
+            } else {
+                *user_points = 0u16;
+            }
+        };
+    }
 
 
     #[view]

@@ -9,7 +9,7 @@ function App() {
 
     const provider = new Provider(Network.DEVNET);
 
-    const moduleAddress = "0x99f025368bc8d2858331379a02d8047192e571c73c378ab4686b68328e7668fa";
+    const moduleAddress = "0x4b0381266aca54cc882efdd14621a9e70dd4d34ebb21977ffd336472e90fd6ba";
 
     const { account, signAndSubmitTransaction } = useWallet();
 
@@ -34,7 +34,7 @@ function App() {
 
     const fetchList = async () => {
         if (!account) return [];
-
+        
         try {
             const QuizListResource = await provider.getAccountResource(
                 moduleAddress,
@@ -61,7 +61,16 @@ function App() {
                 .filter((f: { key: string; })=>f.key===account.address)
                 .map((m: { value: any; })=>m.value);
 
-            const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => !answered_quizes[0].includes(f));
+            const unanswered_quizes = all_quizes.filter((f: any, i: string | number) => {
+                if(!!answered_quizes[0]) {
+                    return !answered_quizes[0].includes(f)
+                } else {
+                    return f;
+                }
+            });
+            // console.log(all_quizes);
+            // console.log(answered_quizes);
+            // console.log(unanswered_quizes);
 
             setQnaList(qna_list.data);
 
@@ -115,6 +124,12 @@ function App() {
     const onQuizAdded = async () => {
         // check for connected account
         if (!account) return;
+
+        if(onlyOneWrod(newQuizAnswer) == false) {
+            alert("Answer must be one word only");
+            return;
+        }
+
         setTransactionInProgress(true);
         // build a transaction payload to be submited
         const payload = {
@@ -128,10 +143,10 @@ function App() {
         //const latestId = qnaList.length;
 
         // build a newTaskToPush object into our local state
-        const newTaskToPush = {
-            key: newQuizQuestion,
-            value: newQuizAnswer
-        };
+        // const newTaskToPush = {
+        //     key: newQuizQuestion,
+        //     value: newQuizAnswer
+        // };
 
         try {
             // sign and submit transaction to chain
@@ -190,6 +205,17 @@ function App() {
             return word.charAt(0).toUpperCase() + word.slice(1);
         } else {
             return word;
+        }
+    }
+
+    function onlyOneWrod(input: string): string | boolean {
+        // Check if the input contains only one word (no spaces)
+        if (/^\S+$/.test(input)) {
+            // Convert the input to lowercase and return
+            return input.toLowerCase();
+        } else {
+            // If the input contains more than one word, return an error message
+            return false;
         }
     }
 
@@ -280,6 +306,7 @@ function App() {
                                                                     style={{ width: "calc(100% - 60px)" }}
                                                                     placeholder="Guess The Quiz Answer"
                                                                     size="large"
+                                                                    name="input_answer_quiz"
                                                                 />
                                                                 <Button
                                                                     onClick={() => onQuizAnswerSubmit(ual)}
